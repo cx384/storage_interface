@@ -1,29 +1,37 @@
 
 storage_interface = {}
 
-local storage_nodes = {
+storage_interface.storage_nodes = {
 	"default:chest",
 	"default:chest_open",
 	"default:chest_locked",
 	"default:chest_locked_open"
 }
 
+storage_interface.connection_nodes = {
+	"storage_interface:storage_interface",
+	"storage_interface:storage_connector"
+}
+
 if minetest.get_modpath("technic_chests") then
-	table.insert(storage_nodes, "technic:iron_chest")
-	table.insert(storage_nodes, "technic:iron_locked_chest")
-	table.insert(storage_nodes, "technic:copper_chest")
-	table.insert(storage_nodes, "technic:copper_locked_chest")
-	table.insert(storage_nodes, "technic:silver_chest")
-	table.insert(storage_nodes, "technic:silver_locked_chest")
-	table.insert(storage_nodes, "technic:gold_chest")
-	table.insert(storage_nodes, "technic:gold_locked_chest")
-	table.insert(storage_nodes, "technic:mithril_chest")
-	table.insert(storage_nodes, "technic:mithril_locked_chest")
+	table.insert(storage_interface.storage_nodes, "technic:iron_chest")
+	table.insert(storage_interface.storage_nodes, "technic:iron_locked_chest")
+	table.insert(storage_interface.storage_nodes, "technic:copper_chest")
+	table.insert(storage_interface.storage_nodes, "technic:copper_locked_chest")
+	table.insert(storage_interface.storage_nodes, "technic:silver_chest")
+	table.insert(storage_interface.storage_nodes, "technic:silver_locked_chest")
+	table.insert(storage_interface.storage_nodes, "technic:gold_chest")
+	table.insert(storage_interface.storage_nodes, "technic:gold_locked_chest")
+	table.insert(storage_interface.storage_nodes, "technic:mithril_chest")
+	table.insert(storage_interface.storage_nodes, "technic:mithril_locked_chest")
 end
 
-local connection_nodes = {
-	"storage_interface:storage_interface"
-}
+if minetest.get_modpath("connected_chests") then
+	table.insert(storage_interface.storage_nodes, "default:chest_connected_left")
+	table.insert(storage_interface.storage_nodes, "default:chest_locked_connected_left")
+	table.insert(storage_interface.connection_nodes, "default:chest_connected_right")
+	table.insert(storage_interface.connection_nodes, "default:chest_locked_connected_right")
+end
 
 -- helper functions
 
@@ -79,8 +87,8 @@ local function get_connected_nodes(pos, player)
 		}
 		for _, cpos in ipairs(check_pos) do
 			local nodename = minetest.get_node(cpos).name
-			if (table_contains(storage_nodes, nodename) or 
-					table_contains(connection_nodes, nodename)) and 
+			if (table_contains(storage_interface.storage_nodes, nodename) or 
+					table_contains(storage_interface.connection_nodes, nodename)) and 
 					not table_contains_table(pos_table, cpos) then
 				table.insert(pos_table, cpos)
 			end
@@ -90,13 +98,34 @@ local function get_connected_nodes(pos, player)
 	for k = 1, #pos_table do
 		local kpos = pos_table[k - rc]
 		local owner = minetest.get_meta(kpos):get_string("owner")
-		if table_contains(connection_nodes, minetest.get_node(kpos).name) or
+		if table_contains(storage_interface.connection_nodes, minetest.get_node(kpos).name) or
 				(owner ~= "" and owner ~= player and player ~= ".ignore_player") then
 			table.remove(pos_table, k - rc)
 			rc = rc + 1
 		end
 	end
 	return pos_table
+end
+
+local function match_filter(item_name, filter)
+	if filter == "" then
+		return true
+	end
+	local filter_table = string.split(filter, ",", false, -1)
+	for _, filter_string in ipairs(filter_table) do
+		if filter_string ~= "" then
+			if string.sub(filter_string, 1, 6) == "group:" then
+				if minetest.get_item_group(item_name, string.sub(filter_string, 7)) > 0 then
+					return true
+				end
+			else
+				if string.find(item_name, filter_string) then
+					return true
+				end
+			end
+		end
+	end
+	return false
 end
 
 -- storage_inv functions
@@ -146,9 +175,12 @@ local function storage_room_for_item(pos, stack, player)
 	for _, tpos in ipairs(nodes) do
 		local meta = minetest.get_meta(tpos)
 		local inv = meta:get_inventory()
-		for listname, _ in pairs(inv:get_lists()) do
-			if inv:room_for_item(listname, stack) then
-				return true
+		local filter = meta:get_string("storage_interface_filter_string")
+		if match_filter(stack:get_name(), filter) then
+			for listname, _ in pairs(inv:get_lists()) do
+				if inv:room_for_item(listname, stack) then
+					return true
+				end
 			end
 		end
 	end
@@ -158,16 +190,29 @@ end
 -- not perfect 
 local function storage_add_item(pos, stack, player)
 	local nodes = get_connected_nodes(pos, player)
+	local possible_destinations = {}
 	for _, tpos in ipairs(nodes) do
 		local meta = minetest.get_meta(tpos)
 		local inv = meta:get_inventory()
-		for listname, _ in pairs(inv:get_lists()) do
-			if inv:room_for_item(listname, stack) then
-				return inv:add_item(listname, stack)
+		local filter = meta:get_string("storage_interface_filter_string")
+		if match_filter(stack:get_name(), filter) then
+			for listname, _ in pairs(inv:get_lists()) do
+				if inv:room_for_item(listname, stack) then
+					local priority = meta:get_int("storage_interface_priority") or 0
+					table.insert(possible_destinations, {pos = tpos, listname = listname, priority = priority})
+				end
 			end
 		end
 	end
-	return stack
+	if not possible_destinations[1] then
+		return stack
+	end
+	table.sort(possible_destinations, function(e1, e2)
+		return e1.priority > e2.priority
+	end)
+	local meta = minetest.get_meta(possible_destinations[1].pos)
+	local inv = meta:get_inventory()
+	return inv:add_item(possible_destinations[1].listname, stack)
 end
 
 -- storage_table functions
@@ -184,7 +229,9 @@ local function get_storage_table(pos, player)
 					pos = tpos,
 					listname = list,
 					index = i,
-					itemstack = inv:get_stack(list, i)
+					itemstack = inv:get_stack(list, i),
+					priority = meta:get_int("storage_interface_priority") or 0,
+					filter = meta:get_string("storage_interface_filter_string") or ""
 				})
 			end
 		end
@@ -462,30 +509,14 @@ local function update_formspec(player, pos)
 	end
 	
 	local search_field = meta:get_string("search_field") or ""
-	if search_field ~= "" then
-		local search_table = string.split(search_field, ",", false, -1)
-		local found_table = {}
-		for _, search_string in ipairs(search_table) do
-			if search_string ~= "" then
-				if string.sub(search_string, 1, 6) == "group:" then
-					for si, se in ipairs(storage_table) do
-						if minetest.get_item_group(se.itemstack:get_name(),
-								string.sub(search_string, 7)) > 0 then
-							found_table[si] = true
-						end
-					end
-				else
-					for si, se in ipairs(storage_table) do
-						if string.find(se.itemstack:get_name(), search_string) then
-							found_table[si] = true
-						end
-					end
-				end
-			end
+	do
+		local kept_table = {}
+		for si, se in ipairs(storage_table) do
+			kept_table[si] = match_filter(se.itemstack:get_name(), search_field)
 		end
 		local rc = 0 
 		for i = 1, #storage_table, 1 do
-			if found_table[i] ~= true then
+			if kept_table[i] ~= true then
 				table.remove(storage_table, i - rc)
 				rc = rc + 1
 			end
@@ -628,8 +659,8 @@ local function update_formspec(player, pos)
 		default.gui_bg ..
 		default.gui_bg_img ..
 		default.gui_slots ..
-		"list[nodemeta:" .. spos .. ";input;0,9.2;3,2;]" ..
-		"label[0,8.7;Input:]" ..
+		"list[nodemeta:" .. spos .. ";input;0,10.2;3,2;]" ..
+		"label[0,9.7;Input:]" ..
 		"listring[current_player;main]" ..
 		"listring[nodemeta:" .. spos .. ";input]" ..
 		"listring[current_player;nothing]" ..
@@ -649,7 +680,7 @@ local function update_formspec(player, pos)
 		"field[7.8,7.3;3,1;search_field;;".. search_field .."]" ..
 		"field_close_on_enter[search_field;false]"..
 		
-		--"button[0.5,8.6;2,1;sort;Sort storage]"..
+		"button[0.5,8.6;2,1;sort_storage;Sort storage]"..
 		
 		"list[current_player;main;3.5,8;8,1;]" ..
 		"list[current_player;main;3.5,9.2;8,3;8]" ..
@@ -661,14 +692,57 @@ local function update_formspec(player, pos)
 	minetest.show_formspec(player, "storage_interface:storage_interface", formspec)
 end
 
-local formspec_poss = {}
+local function sort_storage(pos, player)
+	local meta = minetest.get_meta(pos)
+	local storage_table = get_storage_table(pos, player)
+	local sorted_storage_table = {}
+	for _, ste in ipairs(storage_table) do
+		local itemstack = ste.itemstack
+		local item_name = itemstack:get_name()
+		for _, sste in ipairs(sorted_storage_table) do
+			local new_itemstack = sste.itemstack
+			if new_itemstack:get_name() == item_name then
+				itemstack = new_itemstack:add_item(itemstack)
+			end
+			if itemstack:is_empty() then
+				break
+			end
+		end
+		if not itemstack:is_empty() then
+			table.insert(sorted_storage_table, ste)
+		end
+	end
+	sorted_storage_table = sort_storage_table(sorted_storage_table, meta:get_string("sorting_mode"), "false")
+	for i, e in ipairs(sorted_storage_table) do
+		for id, ed in ipairs(storage_table) do
+			if match_filter(e.itemstack:get_name(), ed.filter) and not storage_table[id].used then
+				sorted_storage_table[i].can_store = true
+				storage_table[id].used = true
+				break
+			end
+		end
+		if not sorted_storage_table[i].can_store then
+			minetest.chat_send_player(player, "Your storage is to small to sort it.")
+			return
+		end
+	end
+	for _, entry in ipairs(storage_table) do
+		local inv = minetest.get_meta(entry.pos):get_inventory()
+		inv:set_stack(entry.listname, entry.index, "")
+	end
+	for _, entry in ipairs(sorted_storage_table) do
+		storage_add_item(pos, entry.itemstack, player)
+	end
+end
+
+local formspec_pos_si = {}
 
 minetest.register_on_player_receive_fields(function(player, formname, fields)
 	if formname ~= "storage_interface:storage_interface" then
 		return
 	end
 	local name = player:get_player_name()
-	local pos = formspec_poss[name]
+	local pos = formspec_pos_si[name]
 	if not pos then
 		return
 	end
@@ -742,6 +816,8 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
 		meta:set_string("search_field", fields.search_field)
 	elseif fields.reset then
 		meta:set_string("search_field", "")
+	elseif fields.sort_storage then
+		sort_storage(pos, name)
 	elseif meta:get_string("mode") == "buttons" then
 		for fieldname, b in pairs(fields) do
 			if b and string.sub(fieldname, 1, 15) == "storage_button_" then
@@ -892,7 +968,7 @@ local si_node_def = {
 	
 	on_rightclick = function(pos, node, clicker)
 		local name = clicker:get_player_name()
-		formspec_poss[name] = pos
+		formspec_pos_si[name] = pos
 		update_formspec(name, pos)
 	end,
 	
@@ -928,13 +1004,149 @@ if minetest.get_modpath("pipeworks") then
 	}
 end
 
+-- sfit functions
+
+local formspec_pos_sfit = {}
+local sfit_local_filter_string = {}
+
+local function use_sfit(player, pos)
+	local player_name = player:get_player_name()
+	local meta = minetest.get_meta(pos)
+	local old_filter_string = sfit_local_filter_string[player_name] or
+			meta:get_string("storage_interface_filter_string") or ""
+	sfit_local_filter_string[player_name] = old_filter_string
+	local old_priority = meta:get_int("storage_interface_priority") or 0
+	formspec_pos_sfit[player_name] = pos
+	minetest.create_detached_inventory("storage_interface:sfit", {
+		allow_put = function(inv, listname, index, stack, player)
+			local player_name = player:get_player_name()
+			local filter_string = sfit_local_filter_string[player_name]
+			local stack_name = stack:get_name()
+			if (not filter_string) or filter_string == "" then
+				filter_string = stack_name
+			else
+				local filter_string_table = string.split(filter_string, ",", false, -1)
+				for _, filter_stringi in ipairs(filter_string_table) do
+					if filter_stringi == stack_name then
+						use_sfit(player, formspec_pos_sfit[player_name])
+						return 0
+					end
+				end
+				filter_string = filter_string ..",".. stack:get_name()
+			end
+			sfit_local_filter_string[player_name] = filter_string
+			use_sfit(player, formspec_pos_sfit[player_name])
+			return 0
+		end
+	}, player_name)
+	local inv = minetest.get_inventory({type="detached", name="storage_interface:sfit"})
+	inv:set_size("item_adder", 1)
+	local formspec =
+		"size[8,6]" ..
+		default.gui_bg ..
+		default.gui_bg_img ..
+		default.gui_slots ..
+		"list[detached:storage_interface:sfit;item_adder;0,0.5;1,1]" ..
+		"list[current_player;main;0,1.85;8,1;]" ..
+		"list[current_player;main;0,3.08;8,3;8]" ..
+		"listring[detached:storage_interface:sfit;item_adder]" ..
+		"listring[current_player;main]" ..
+		"field[1.3,0.8;5,1;sorting_filter_string;Sorting Filter String ();".. old_filter_string .."]" ..
+		"field[6.3,0.8;1,1;priority;Priority;".. old_priority .."]" ..
+		"button[7,0.5;1,1;set_filter_string;Set]"..
+		default.get_hotbar_bg(0,1.85)
+	minetest.show_formspec(player_name, "storage_interface:sfit", formspec)
+end
+
+minetest.register_on_player_receive_fields(function(player, formname, fields)
+	if formname ~= "storage_interface:sfit" then
+		return
+	end
+	local player_name = player:get_player_name()
+	local pos = formspec_pos_sfit[player_name]
+	if not pos then
+		return
+	end
+	local meta = minetest.get_meta(pos)
+	if fields.set_filter_string or
+			fields.key_enter_field == "sorting_filter_string" or
+			fields.key_enter_field == "priority" then
+		sfit_local_filter_string[player_name] = nil
+		meta:set_string("storage_interface_filter_string", fields.sorting_filter_string)
+		local priority = tonumber(fields.priority) or 0
+		meta:set_int("storage_interface_priority", priority)
+	end
+	if fields.quit then
+		return true
+	else
+		use_sfit(player, pos)
+	end
+end)
+
+-- item registration
+
 minetest.register_node("storage_interface:storage_interface", si_node_def)
+
+minetest.register_node("storage_interface:storage_connector", {
+	description = "Storage Connector",
+	tiles = {"default_chest_top.png^storage_interface_connector.png"},
+	groups = {choppy = 2, oddly_breakable_by_hand = 2, wood = 1},
+	is_ground_content = false,
+	sounds = default.node_sound_wood_defaults(),
+})
+
+minetest.register_craftitem("storage_interface:sfit", {
+	description = "Sorting Filter Inscribing Tool",
+	inventory_image = "storage_interface_sfit.png",
+	stack_max = 1,
+	on_use = function(itemstack, user, pointed_thing)
+		if not (pointed_thing and pointed_thing.type == "node" and user) then
+			return
+		end
+		local pos = pointed_thing.under
+		local player_name = user:get_player_name()
+		local node = minetest.get_node(pos).name
+		local meta = minetest.get_meta(pos)
+		local owner = meta:get_string("owner") or ""
+		if (owner ~= "" and owner ~= player_name) or minetest.is_protected(pos, player_name) then
+			minetest.chat_send_player(player_name, "You do not own this node.")
+			return
+		end
+		if table_contains(storage_interface.storage_nodes, node) then
+			sfit_local_filter_string[player_name] = nil
+			use_sfit(user, pos)
+		else
+			minetest.chat_send_player(player_name, "You can't inscribe this node.")
+		end
+		return
+	end,
+})
+
+-- craft registration
 
 minetest.register_craft({
 	output = 'storage_interface:storage_interface',
 	recipe = {
 		{'default:steel_ingot', 'default:glass', 'default:steel_ingot'},
-		{'group:wood', 'default:mese_crystal', 'group:wood'},
+		{'group:wood', 'default:mese', 'group:wood'},
 		{'group:wood', 'default:chest', 'group:wood'},
+	}
+})
+
+minetest.register_craft({
+	output = 'storage_interface:storage_connector 18',
+	recipe = {
+		{'group:stick', '', 'group:stick'},
+		{'default:chest', 'group:wood', 'default:chest'},
+		{'group:stick', '', 'group:stick'},
+	}
+})
+
+minetest.register_craft({
+	output = 'storage_interface:sfit',
+	recipe = {
+		{'', 'default:mese_crystal_fragment', 'group:dye'},
+		{'default:steel_ingot', 'default:chest', 'default:mese_crystal_fragment'},
+		{'group:stick', 'default:steel_ingot', ''},
 	}
 })

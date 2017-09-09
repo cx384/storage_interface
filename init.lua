@@ -118,6 +118,11 @@ local function match_filter(item_name, filter)
 				if minetest.get_item_group(item_name, string.sub(filter_string, 7)) > 0 then
 					return true
 				end
+			elseif string.sub(filter_string, 1, 1) == '"' and
+					string.sub(filter_string, string.len(filter_string)) == '"' then
+				if string.sub(filter_string, 2, string.len(filter_string)-1) == item_name then
+					return true
+				end
 			else
 				if string.find(item_name, filter_string) then
 					return true
@@ -1023,16 +1028,16 @@ local function use_sfit(player, pos)
 			local filter_string = sfit_local_filter_string[player_name]
 			local stack_name = stack:get_name()
 			if (not filter_string) or filter_string == "" then
-				filter_string = stack_name
+				filter_string = '"'.. stack_name ..'"'
 			else
 				local filter_string_table = string.split(filter_string, ",", false, -1)
 				for _, filter_stringi in ipairs(filter_string_table) do
-					if filter_stringi == stack_name then
+					if string.sub(filter_stringi, 2, string.len(filter_stringi)-1) == stack_name then
 						use_sfit(player, formspec_pos_sfit[player_name])
 						return 0
 					end
 				end
-				filter_string = filter_string ..",".. stack:get_name()
+				filter_string = filter_string ..',"'.. stack_name ..'"'
 			end
 			sfit_local_filter_string[player_name] = filter_string
 			use_sfit(player, formspec_pos_sfit[player_name])
@@ -1046,14 +1051,18 @@ local function use_sfit(player, pos)
 		default.gui_bg ..
 		default.gui_bg_img ..
 		default.gui_slots ..
-		"list[detached:storage_interface:sfit;item_adder;0,0.5;1,1]" ..
+		"list[detached:storage_interface:sfit;item_adder;2,0.5;1,1]" ..
+		"label[2,0.1;Scan item]" ..
 		"list[current_player;main;0,1.85;8,1;]" ..
 		"list[current_player;main;0,3.08;8,3;8]" ..
 		"listring[detached:storage_interface:sfit;item_adder]" ..
 		"listring[current_player;main]" ..
-		"field[1.3,0.8;5,1;sorting_filter_string;Sorting Filter String ();".. old_filter_string .."]" ..
+		"field[3.3,0.8;3,1;sorting_filter_string;Sorting Filter String ();".. old_filter_string .."]" ..
 		"field[6.3,0.8;1,1;priority;Priority;".. old_priority .."]" ..
+		"field_close_on_enter[sorting_filter_string;false]"..
+		"field_close_on_enter[priority;false]"..
 		"button[7,0.5;1,1;set_filter_string;Set]"..
+		"button[0,0.5;2,1;scan_inventory;Scan inventory]"..
 		default.get_hotbar_bg(0,1.85)
 	minetest.show_formspec(player_name, "storage_interface:sfit", formspec)
 end
@@ -1064,6 +1073,7 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
 	end
 	local player_name = player:get_player_name()
 	local pos = formspec_pos_sfit[player_name]
+	sfit_local_filter_string[player_name] = fields.sorting_filter_string
 	if not pos then
 		return
 	end
@@ -1071,10 +1081,35 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
 	if fields.set_filter_string or
 			fields.key_enter_field == "sorting_filter_string" or
 			fields.key_enter_field == "priority" then
-		sfit_local_filter_string[player_name] = nil
-		meta:set_string("storage_interface_filter_string", fields.sorting_filter_string)
+		meta:set_string("storage_interface_filter_string", sfit_local_filter_string[player_name])
 		local priority = tonumber(fields.priority) or 0
 		meta:set_int("storage_interface_priority", priority)
+		minetest.chat_send_player(player_name, "Filter set.")
+		sfit_local_filter_string[player_name] = nil
+	elseif fields.scan_inventory then
+		local inv_list = meta:get_inventory():get_lists()
+		local filter_string = sfit_local_filter_string[player_name]
+		for _, ilist in pairs(inv_list) do
+			for _, stack in ipairs(ilist) do
+				local stack_name = stack:get_name() or ""
+				if stack_name == "" then
+				elseif (not filter_string) or filter_string == "" then
+					filter_string = '"'.. stack_name ..'"'
+				else
+					local filter_string_table = string.split(filter_string, ",", false, -1)
+					local contains_name = false
+					for _, filter_stringi in ipairs(filter_string_table) do
+						if string.sub(filter_stringi, 2, string.len(filter_stringi)-1) == stack_name then
+							contains_name = true
+						end
+					end
+					if not contains_name then
+						filter_string = filter_string ..',"'.. stack_name ..'"'
+					end
+				end
+			end
+		end
+		sfit_local_filter_string[player_name] = filter_string
 	end
 	if fields.quit then
 		return true

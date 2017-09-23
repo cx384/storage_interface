@@ -6,7 +6,7 @@ Forum: https://forum.minetest.net/viewtopic.php?f=9&t=18429
 
 Dependencies: default (technic_chests?, pipeworks?, connected_chests?)
 
-Contributors: cx384
+Contributors: cx384, Fixer-007 
 
 License: GPL-3.0 
 

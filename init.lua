@@ -1122,25 +1122,32 @@ end)
 
 minetest.register_node("storage_interface:storage_interface", si_node_def)
 
-local size = 2/16
+local scnb_size = 2/16
+local sc_connects_to = table.copy(storage_interface.storage_nodes)
+for _, i in ipairs(storage_interface.connection_nodes) do
+	table.insert(sc_connects_to, i)
+end
 minetest.register_node("storage_interface:storage_connector", {
-   description = "Storage Connector",
-   tiles = {"default_chest_top.png^storage_interface_connector.png"},
-   groups = {choppy = 2, oddly_breakable_by_hand = 2, wood = 1,storage_interface_connect = 1},
-   is_ground_content = false,
-   sounds = default.node_sound_wood_defaults(),
-   drawtype = "nodebox",
-  node_box = {
-    type = "connected",
-      fixed          = {-size, -size, -size, size,  size, size},
-      connect_top    = {-size, -size, -size, size,  0.5,  size}, -- y+
-      connect_bottom = {-size, -0.5,  -size, size,  size, size}, -- y-
-      connect_front  = {-size, -size, -0.5,  size,  size, size}, -- z-
-      connect_back   = {-size, -size,  size, size,  size, 0.5 }, -- z+
-      connect_left   = {-0.5,  -size, -size, size,  size, size}, -- x-
-      connect_right  = {-size, -size, -size, 0.5,   size, size}, -- x+
-  },
-  connects_to = {"storage_interface:storage_interface","group:storage_interface_connect","default:chest","default:chest_open","default:chest_locked","default:chest_locked_open","technic:iron_chest","technic:iron_locked_chest","technic:copper_chest","technic:copper_locked_chest","technic:gold_chest","technic:gold_locked_chest"},
+	description = "Storage Cable",
+	tiles = {"default_chest_top.png^storage_interface_connector.png"},
+	inventory_image = "storage_interface_connector.png",
+	groups = {choppy = 2, oddly_breakable_by_hand = 2, wood = 1, storage_interface_connect = 1},
+	is_ground_content = false,
+	sunlight_propagates = true,
+	paramtype = "light",
+	sounds = default.node_sound_wood_defaults(),
+	drawtype = "nodebox",
+	node_box = {
+	type = "connected",
+		fixed		= {-scnb_size, -scnb_size, -scnb_size, scnb_size, scnb_size, scnb_size},
+		connect_top	= {-scnb_size, -scnb_size, -scnb_size, scnb_size, 0.5,       scnb_size}, -- y+
+		connect_bottom	= {-scnb_size, -0.5, 	   -scnb_size, scnb_size, scnb_size, scnb_size}, -- y-
+		connect_front	= {-scnb_size, -scnb_size, -0.5,       scnb_size, scnb_size, scnb_size}, -- z-
+		connect_back	= {-scnb_size, -scnb_size,  scnb_size, scnb_size, scnb_size, 0.5      }, -- z+
+		connect_left	= {-0.5,       -scnb_size, -scnb_size, scnb_size, scnb_size, scnb_size}, -- x-
+		connect_right	= {-scnb_size, -scnb_size, -scnb_size, 0.5,       scnb_size, scnb_size}, -- x+
+	},
+	connects_to = sc_connects_to,
 })
 
 minetest.register_craftitem("storage_interface:sfit", {

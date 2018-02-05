@@ -1122,12 +1122,25 @@ end)
 
 minetest.register_node("storage_interface:storage_interface", si_node_def)
 
+local size = 2/16
 minetest.register_node("storage_interface:storage_connector", {
-	description = "Storage Connector",
-	tiles = {"default_chest_top.png^storage_interface_connector.png"},
-	groups = {choppy = 2, oddly_breakable_by_hand = 2, wood = 1},
-	is_ground_content = false,
-	sounds = default.node_sound_wood_defaults(),
+   description = "Storage Connector",
+   tiles = {"default_chest_top.png^storage_interface_connector.png"},
+   groups = {choppy = 2, oddly_breakable_by_hand = 2, wood = 1,storage_interface_connect = 1},
+   is_ground_content = false,
+   sounds = default.node_sound_wood_defaults(),
+   drawtype = "nodebox",
+  node_box = {
+    type = "connected",
+      fixed          = {-size, -size, -size, size,  size, size},
+      connect_top    = {-size, -size, -size, size,  0.5,  size}, -- y+
+      connect_bottom = {-size, -0.5,  -size, size,  size, size}, -- y-
+      connect_front  = {-size, -size, -0.5,  size,  size, size}, -- z-
+      connect_back   = {-size, -size,  size, size,  size, 0.5 }, -- z+
+      connect_left   = {-0.5,  -size, -size, size,  size, size}, -- x-
+      connect_right  = {-size, -size, -size, 0.5,   size, size}, -- x+
+  },
+  connects_to = {"storage_interface:storage_interface","group:storage_interface_connect","default:chest","default:chest_open","default:chest_locked","default:chest_locked_open","technic:iron_chest","technic:iron_locked_chest","technic:copper_chest","technic:copper_locked_chest","technic:gold_chest","technic:gold_locked_chest"},
 })
 
 minetest.register_craftitem("storage_interface:sfit", {

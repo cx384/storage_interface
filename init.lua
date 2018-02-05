@@ -1122,12 +1122,32 @@ end)
 
 minetest.register_node("storage_interface:storage_interface", si_node_def)
 
+local scnb_size = 2/16
+local sc_connects_to = table.copy(storage_interface.storage_nodes)
+for _, i in ipairs(storage_interface.connection_nodes) do
+	table.insert(sc_connects_to, i)
+end
 minetest.register_node("storage_interface:storage_connector", {
-	description = "Storage Connector",
+	description = "Storage Cable",
 	tiles = {"default_chest_top.png^storage_interface_connector.png"},
-	groups = {choppy = 2, oddly_breakable_by_hand = 2, wood = 1},
+	inventory_image = "storage_interface_connector.png",
+	groups = {choppy = 2, oddly_breakable_by_hand = 2, wood = 1, storage_interface_connect = 1},
 	is_ground_content = false,
+	sunlight_propagates = true,
+	paramtype = "light",
 	sounds = default.node_sound_wood_defaults(),
+	drawtype = "nodebox",
+	node_box = {
+	type = "connected",
+		fixed		= {-scnb_size, -scnb_size, -scnb_size, scnb_size, scnb_size, scnb_size},
+		connect_top	= {-scnb_size, -scnb_size, -scnb_size, scnb_size, 0.5,       scnb_size}, -- y+
+		connect_bottom	= {-scnb_size, -0.5, 	   -scnb_size, scnb_size, scnb_size, scnb_size}, -- y-
+		connect_front	= {-scnb_size, -scnb_size, -0.5,       scnb_size, scnb_size, scnb_size}, -- z-
+		connect_back	= {-scnb_size, -scnb_size,  scnb_size, scnb_size, scnb_size, 0.5      }, -- z+
+		connect_left	= {-0.5,       -scnb_size, -scnb_size, scnb_size, scnb_size, scnb_size}, -- x-
+		connect_right	= {-scnb_size, -scnb_size, -scnb_size, 0.5,       scnb_size, scnb_size}, -- x+
+	},
+	connects_to = sc_connects_to,
 })
 
 minetest.register_craftitem("storage_interface:sfit", {

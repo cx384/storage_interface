@@ -1057,12 +1057,12 @@ local function use_sfit(player, pos)
 		"list[current_player;main;0,3.08;8,3;8]" ..
 		"listring[detached:storage_interface:sfit;item_adder]" ..
 		"listring[current_player;main]" ..
-		"field[3.3,0.8;3,1;sorting_filter_string;Sorting Filter String ();".. old_filter_string .."]" ..
+		"field[3.3,0.8;3,1;sorting_filter_string;Sorting Filter String;".. old_filter_string .."]" ..
 		"field[6.3,0.8;1,1;priority;Priority;".. old_priority .."]" ..
 		"field_close_on_enter[sorting_filter_string;false]"..
 		"field_close_on_enter[priority;false]"..
-		"button[7,0.5;1,1;set_filter_string;Set]"..
-		"button[0,0.5;2,1;scan_inventory;Scan inventory]"..
+		"button[7,0.5;1,1;set_filter_string;Save]"..
+		"button[0,0.5;2,1;scan_inventory;Scan node inventory]"..
 		default.get_hotbar_bg(0,1.85)
 	minetest.show_formspec(player_name, "storage_interface:sfit", formspec)
 end
@@ -1084,7 +1084,7 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
 		meta:set_string("storage_interface_filter_string", sfit_local_filter_string[player_name])
 		local priority = tonumber(fields.priority) or 0
 		meta:set_int("storage_interface_priority", priority)
-		minetest.chat_send_player(player_name, "Filter set.")
+		minetest.chat_send_player(player_name, "Filter inscribed.")
 		sfit_local_filter_string[player_name] = nil
 	elseif fields.scan_inventory then
 		local inv_list = meta:get_inventory():get_lists()
@@ -1122,15 +1122,16 @@ end)
 
 minetest.register_node("storage_interface:storage_interface", si_node_def)
 
-local scnb_size = 2/16
+local scnb_size = 3/16
 local sc_connects_to = table.copy(storage_interface.storage_nodes)
 for _, i in ipairs(storage_interface.connection_nodes) do
 	table.insert(sc_connects_to, i)
 end
 minetest.register_node("storage_interface:storage_connector", {
 	description = "Storage Cable",
-	tiles = {"default_chest_top.png^storage_interface_connector.png"},
-	inventory_image = "storage_interface_connector.png",
+	tiles = {"storage_interface_connector.png^[transform1^storage_interface_connector.png"},
+	inventory_image = "storage_interface_connector_inv.png",
+	wield_image = "storage_interface_connector_inv.png",
 	groups = {choppy = 2, oddly_breakable_by_hand = 2, wood = 1, storage_interface_connect = 1},
 	is_ground_content = false,
 	sunlight_propagates = true,
@@ -1139,13 +1140,13 @@ minetest.register_node("storage_interface:storage_connector", {
 	drawtype = "nodebox",
 	node_box = {
 	type = "connected",
-		fixed		= {-scnb_size, -scnb_size, -scnb_size, scnb_size, scnb_size, scnb_size},
-		connect_top	= {-scnb_size, -scnb_size, -scnb_size, scnb_size, 0.5,       scnb_size}, -- y+
-		connect_bottom	= {-scnb_size, -0.5, 	   -scnb_size, scnb_size, scnb_size, scnb_size}, -- y-
-		connect_front	= {-scnb_size, -scnb_size, -0.5,       scnb_size, scnb_size, scnb_size}, -- z-
-		connect_back	= {-scnb_size, -scnb_size,  scnb_size, scnb_size, scnb_size, 0.5      }, -- z+
-		connect_left	= {-0.5,       -scnb_size, -scnb_size, scnb_size, scnb_size, scnb_size}, -- x-
-		connect_right	= {-scnb_size, -scnb_size, -scnb_size, 0.5,       scnb_size, scnb_size}, -- x+
+		fixed			= {-scnb_size, -scnb_size, 	-scnb_size, scnb_size,  scnb_size, scnb_size},
+		connect_top		= {-scnb_size, -scnb_size, 	-scnb_size, scnb_size,  0.5, 	   scnb_size}, -- y+
+		connect_bottom	= {-scnb_size, -0.5, 		-scnb_size, scnb_size,  scnb_size, scnb_size}, -- y-
+		connect_front	= {-scnb_size, -scnb_size,	-0.5,  		scnb_size,  scnb_size, scnb_size}, -- z-
+		connect_back	= {-scnb_size, -scnb_size, 	 scnb_size, scnb_size,  scnb_size, 0.5 		}, -- z+
+		connect_left	= {-0.5,	   -scnb_size,	-scnb_size, scnb_size,  scnb_size, scnb_size}, -- x-
+		connect_right	= {-scnb_size, -scnb_size,	-scnb_size, 0.5,   		scnb_size, scnb_size}, -- x+
 	},
 	connects_to = sc_connects_to,
 })

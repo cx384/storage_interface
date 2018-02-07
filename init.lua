@@ -10,7 +10,8 @@ storage_interface.storage_nodes = {
 
 storage_interface.connection_nodes = {
 	"storage_interface:storage_interface",
-	"storage_interface:storage_connector"
+	"storage_interface:storage_connector",
+	"storage_interface:storage_connector_embedded"
 }
 
 if minetest.get_modpath("technic_chests") then
@@ -1128,8 +1129,8 @@ for _, i in ipairs(storage_interface.connection_nodes) do
 	table.insert(sc_connects_to, i)
 end
 minetest.register_node("storage_interface:storage_connector", {
-	description = "Storage Cable",
-	tiles = {"storage_interface_connector.png^[transform1^storage_interface_connector.png"},
+	description = "Storage Connection Cable",
+	tiles = {"storage_interface_connector.png"},
 	inventory_image = "storage_interface_connector_inv.png",
 	wield_image = "storage_interface_connector_inv.png",
 	groups = {choppy = 2, oddly_breakable_by_hand = 2, wood = 1, storage_interface_connect = 1},
@@ -1149,6 +1150,14 @@ minetest.register_node("storage_interface:storage_connector", {
 		connect_right	= {-scnb_size, -scnb_size,	-scnb_size, 0.5,   		scnb_size, scnb_size}, -- x+
 	},
 	connects_to = sc_connects_to,
+})
+
+minetest.register_node("storage_interface:storage_connector_embedded", {
+	description = "Embedded Storage Connection Cable",
+	tiles = {"default_chest_top.png^storage_interface_connector_middle.png"},
+	groups = {choppy = 2, oddly_breakable_by_hand = 2, wood = 1},
+	is_ground_content = false,
+	sounds = default.node_sound_wood_defaults(),
 })
 
 minetest.register_craftitem("storage_interface:sfit", {
@@ -1195,6 +1204,15 @@ minetest.register_craft({
 		{'group:stick', '', 'group:stick'},
 		{'default:chest', 'group:wood', 'default:chest'},
 		{'group:stick', '', 'group:stick'},
+	}
+})
+
+minetest.register_craft({
+	output = 'storage_interface:storage_connector_embedded 9',
+	recipe = {
+		{'group:wood', 'group:wood', 'group:wood'},
+		{'group:wood', 'storage_interface:storage_connector', 'group:wood'},
+		{'group:wood', 'group:wood', 'group:wood'},
 	}
 })
 

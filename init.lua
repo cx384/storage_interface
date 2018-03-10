@@ -733,7 +733,7 @@ local function update_formspec(player, pos)
 				"button[14,10.1;1,1;change_items_on_click;Change]"
 		end
 		if mode == "actual_inv" then
-			ibuttons = "field[11.9,11.4;2,1;infotext;Infotext;".. meta:get_string("infotext") .."]" ..
+			ibuttons = "field[11.9,11.4;2,1;infotext;Infotext;".. minetest.formspec_escape(meta:get_string("infotext")) .."]" ..
 				"button[14,11.1;1,1;set_infotext;Set]" ..
 				"field_close_on_enter[infotext;false]"
 		end
@@ -771,7 +771,7 @@ local function update_formspec(player, pos)
 		
 		"button[10.5,7;1,1;search;Search]"..
 		"button[11.4,7;1,1;reset;Reset]"..
-		"field[7.8,7.3;3,1;search_field;;".. search_field .."]" ..
+		"field[7.8,7.3;3,1;search_field;;".. minetest.formspec_escape(search_field) .."]" ..
 		"field_close_on_enter[search_field;false]"..
 		
 		"button[0.5,8.6;2,1;sort_storage;Sort storage]"..
@@ -1156,8 +1156,8 @@ local function use_sfit(player, pos)
 		"list[current_player;main;0,3.08;8,3;8]" ..
 		"listring[detached:storage_interface:sfit;item_adder]" ..
 		"listring[current_player;main]" ..
-		"field[3.3,0.8;3,1;sorting_filter_string;Sorting Filter String;".. old_filter_string .."]" ..
-		"field[6.3,0.8;1,1;priority;Priority;".. old_priority .."]" ..
+		"field[3.3,0.8;3,1;sorting_filter_string;Sorting Filter String;".. minetest.formspec_escape(old_filter_string) .."]" ..
+		"field[6.3,0.8;1,1;priority;Priority;"..  minetest.formspec_escape(old_priority) .."]" ..
 		"field_close_on_enter[sorting_filter_string;false]"..
 		"field_close_on_enter[priority;false]"..
 		"button[7,0.5;1,1;set_filter_string;Save]"..

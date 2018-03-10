@@ -1157,7 +1157,7 @@ local function use_sfit(player, pos)
 		"listring[detached:storage_interface:sfit;item_adder]" ..
 		"listring[current_player;main]" ..
 		"field[3.3,0.8;3,1;sorting_filter_string;Sorting Filter String;".. minetest.formspec_escape(old_filter_string) .."]" ..
-		"field[6.3,0.8;1,1;priority;Priority;"..  minetest.formspec_escape(old_priority) .."]" ..
+		"field[6.3,0.8;1,1;priority;Priority;".. minetest.formspec_escape(old_priority) .."]" ..
 		"field_close_on_enter[sorting_filter_string;false]"..
 		"field_close_on_enter[priority;false]"..
 		"button[7,0.5;1,1;set_filter_string;Save]"..

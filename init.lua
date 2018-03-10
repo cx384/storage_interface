@@ -363,6 +363,42 @@ end
 
 -- storage_interface functions
 
+local function get_color(stack_count)
+	local ratio = 185
+	local red, green, blue = 0, 0, 0
+	if stack_count <= 1 then
+		red = 235-math.floor(215*((stack_count-1)^2))
+		green = red
+		blue = red
+	else
+		local r = math.floor((1-math.exp(-0.0141*stack_count))*1200) -- 32 stacks about red
+		green = 255
+		red = 75 + r
+		if red >= 255 then
+			r = r - (255-75)
+			red = 255
+			green = 255 - r
+			if green <= 0 then
+				r = r - 255
+				green = 0
+				blue = r
+				if blue >= 255 then
+					r = r - 255
+					blue = 255
+					red = 255 - r
+					if red <= 0 then
+						r = r - 255
+						red = 0
+						green = r
+					end
+				end
+			end
+		end
+	end
+	local color = minetest.rgba(red, green, blue)
+	return "gui_hb_bg.png^[colorize:".. color ..":".. ratio .."]"
+end
+
 local function storage_table_to_formspec(storage_table, xpos, ypos, l, h, page)
 	local d_table = {}
 	local formspec = ""
@@ -381,7 +417,8 @@ local function storage_table_to_formspec(storage_table, xpos, ypos, l, h, page)
 			end
 		end
 		local string_pos = pos_to_string(entry.pos)
-		formspec = formspec .. "list[nodemeta:".. string_pos ..";".. 
+		formspec = formspec ..
+			"list[nodemeta:".. string_pos ..";".. 
 			entry["listname"] ..";"..
 			xpos + lc - 1 ..",".. hc + ypos - 1 ..";"..
 			"1,1;".. entry.index -1 .."]" ..
@@ -392,7 +429,7 @@ local function storage_table_to_formspec(storage_table, xpos, ypos, l, h, page)
 	return formspec
 end
 
-local function set_fake_inv(oikt, xpos, ypos, l, h, page, pos, sorting_mode, ignore_wam)
+local function set_fake_inv(oikt, xpos, ypos, l, h, page, pos, sorting_mode, ignore_wam, display_count)
 	local storage_table = {}
 	for i, en in pairs(oikt) do
 		en[1].count = en.count
@@ -432,19 +469,39 @@ local function set_fake_inv(oikt, xpos, ypos, l, h, page, pos, sorting_mode, ign
 			end
 		end
 		local string_pos = pos_to_string(pos)
-		formspec = formspec ..
-			"label[".. xpos + lc - 0.9 ..",".. (hc + ypos - 0.4) * 1.4 ..";".. entry.count .."]" ..
-			"list[nodemeta:".. string_pos ..";".. 
-			"fake_inv;".. xpos + lc - 1 ..",".. (hc + ypos - 1) * 1.4 ..";"..
-			"1,1;".. lc - 1 + (hc - 1) * l .."]" ..
-			"listring[nodemeta:" .. string_pos .. ";fake_inv]" ..
-			"listring[current_player;main]"..
-			"listring[current_player;nothing]"
+		if display_count == "number" then
+			formspec = formspec ..
+				"label[".. xpos + lc - 0.9 ..",".. (hc + ypos - 0.4) * 1.4 ..";".. entry.count .."]" ..
+				"list[nodemeta:".. string_pos ..";".. 
+				"fake_inv;".. xpos + lc - 1 ..",".. (hc + ypos - 1) * 1.4 ..";"..
+				"1,1;".. lc - 1 + (hc - 1) * l .."]" ..
+				"listring[nodemeta:" .. string_pos .. ";fake_inv]" ..
+				"listring[current_player;main]"..
+				"listring[current_player;nothing]"
+		elseif display_count == "color" then
+			formspec = formspec ..
+				"list[nodemeta:".. string_pos ..";".. 
+				"fake_inv;".. xpos + lc - 1 ..",".. hc + ypos - 1 ..";"..
+				"1,1;".. lc - 1 + (hc - 1) * l .."]" ..
+				"image[".. xpos + lc - 1 ..",".. hc + ypos - 1 ..
+				";1,1;".. get_color(count/max_scount) .."]"..
+				"listring[nodemeta:" .. string_pos .. ";fake_inv]" ..
+				"listring[current_player;main]"..
+				"listring[current_player;nothing]"
+		else
+			formspec = formspec ..
+				"list[nodemeta:".. string_pos ..";".. 
+				"fake_inv;".. xpos + lc - 1 ..",".. hc + ypos - 1 ..";"..
+				"1,1;".. lc - 1 + (hc - 1) * l .."]" ..
+				"listring[nodemeta:" .. string_pos .. ";fake_inv]" ..
+				"listring[current_player;main]"..
+				"listring[current_player;nothing]"
+		end
 	end
 	return formspec
 end
 
-local function get_buttons(oikt, xpos, ypos, l, h, page, pos, sorting_mode, ignore_wam)
+local function get_buttons(oikt, xpos, ypos, l, h, page, pos, sorting_mode, ignore_wam, display_count)
 	local ignore_wam = true
 	local storage_table = {}
 	for i, en in pairs(oikt) do
@@ -470,10 +527,22 @@ local function get_buttons(oikt, xpos, ypos, l, h, page, pos, sorting_mode, igno
 		end
 		local itemstack_name = entry.itemstack:get_name()
 		local string_pos = pos_to_string(pos)
-		formspec = formspec ..
-			"label[".. xpos + lc - 0.9 ..",".. (hc + ypos - 0.4) * 1.4 ..";".. entry.count .."]" ..
-			"item_image_button[".. xpos + lc - 1 ..",".. (hc + ypos - 1) * 1.4 ..
-			";1,1;".. itemstack_name ..";".. "storage_button_" .. itemstack_name ..";]"
+		if display_count == "number" then
+			formspec = formspec ..
+				"label[".. xpos + lc - 0.9 ..",".. (hc + ypos - 0.4) * 1.4 ..";".. entry.count .."]" ..
+				"item_image_button[".. xpos + lc - 1 ..",".. (hc + ypos - 1) * 1.4 ..
+				";1,1;".. itemstack_name ..";".. "storage_button_" .. itemstack_name ..";]"
+		elseif display_count == "color" then
+			formspec = formspec ..
+				"item_image_button[".. xpos + lc - 1 ..",".. hc + ypos - 1 ..
+				";1,1;".. itemstack_name ..";".. "storage_button_" .. itemstack_name ..";]" ..
+				"image[".. xpos + lc - 1 ..",".. hc + ypos - 1 ..
+				";1,1;".. get_color(entry.count/entry.itemstack:get_stack_max()) .."]"
+		else
+			formspec = formspec ..
+				"item_image_button[".. xpos + lc - 1 ..",".. hc + ypos - 1 ..
+				";1,1;".. itemstack_name ..";".. "storage_button_" .. itemstack_name ..";]"
+		end
 	end
 	return formspec
 end
@@ -484,6 +553,8 @@ local function update_formspec(player, pos)
 	local page = meta:get_int("page") or 1
 	local max_page = 1
 	local mode = meta:get_string("mode") or "actual_inv"
+	local l = 15
+	local h = 7
 	
 	local capacity = #storage_table
 	local empty_slots = 0
@@ -512,6 +583,17 @@ local function update_formspec(player, pos)
 		ignore_wamdis = "True"
 	elseif ignore_wam == "false" then
 		ignore_wamdis = "False"
+	end
+	
+	local display_count = meta:get_string("display_count") or "number"
+	local display_countdis = ""
+	if display_count == "number" then
+		h = 5
+		display_countdis = "Number"
+	elseif display_count == "none" then
+		display_countdis = "None"
+	elseif display_count == "color" then
+		display_countdis = "Color"
 	end
 	
 	local search_field = meta:get_string("search_field") or ""
@@ -567,8 +649,9 @@ local function update_formspec(player, pos)
 	local modedis = mode
 	local st_form = ""
 	if mode == "actual_inv" then
+		h = 7
 		modedis = "Actual Inventory"
-		max_page = math.ceil(#storage_table/(15*7))
+		max_page = math.ceil(#storage_table/(l*h))
 		if max_page < 1 then
 			max_page = 1
 		end
@@ -580,7 +663,7 @@ local function update_formspec(player, pos)
 			page = 1
 			meta:set_int("page", page)
 		end
-		st_form = storage_table_to_formspec(storage_table, 0, 0, 15, 7, page)
+		st_form = storage_table_to_formspec(storage_table, 0, 0, l, h, page)
 	elseif mode == "fake_inv" then
 		modedis = "Fake Inventory"
 		local oikt = get_one_item_kind_table(storage_table, ignore_wam)
@@ -588,7 +671,7 @@ local function update_formspec(player, pos)
 		for _, _ in pairs(oikt) do
 			oiktl = oiktl + 1
 		end
-		max_page = math.ceil(oiktl/(15*5))
+		max_page = math.ceil(oiktl/(l*h))
 		if max_page < 1 then
 			max_page = 1
 		end
@@ -600,7 +683,7 @@ local function update_formspec(player, pos)
 			page = 1
 			meta:set_int("page", page)
 		end
-		st_form = set_fake_inv(oikt, 0, 0, 15, 5, page, pos, sorting_mode, ignore_wam) 
+		st_form = set_fake_inv(oikt, 0, 0, l, h, page, pos, sorting_mode, ignore_wam, display_count) 
 	elseif mode == "buttons" then
 		modedis = "Buttons"
 		local oikt = get_one_item_kind_table(storage_table, ignore_wam)
@@ -608,7 +691,7 @@ local function update_formspec(player, pos)
 		for _, _ in pairs(oikt) do
 			oiktl = oiktl + 1
 		end
-		max_page = math.ceil(oiktl/(15*5))
+		max_page = math.ceil(oiktl/(l*h))
 		if max_page < 1 then
 			max_page = 1
 		end
@@ -620,7 +703,7 @@ local function update_formspec(player, pos)
 			page = 1
 			meta:set_int("page", page)
 		end
-		st_form = get_buttons(oikt, 0, 0, 15, 5, page, pos, sorting_mode, ignore_wam) 
+		st_form = get_buttons(oikt, 0, 0, l, h, page, pos, sorting_mode, ignore_wam, display_count) 
 	end
 	
 	local rb_mode = meta:get_string("rb_mode") or "settings"
@@ -634,6 +717,8 @@ local function update_formspec(player, pos)
 	elseif rb_mode == "settings" then
 		local dbuttons = "label[11.6,10.3;Ignore meta and wear: ".. ignore_wamdis .."]" ..
 			"button[14,10.1;1,1;change_ignore_wam;Change]"
+		local ibuttons = "label[11.6,11;Display count: ".. display_countdis .."]" ..
+			"button[14,10.8;1,1;change_display_count;Change]"
 		if mode == "buttons" then
 			local items_on_click = meta:get_string("items_on_click") or "one_stack"
 			local items_on_clickdis = items_on_click
@@ -647,6 +732,11 @@ local function update_formspec(player, pos)
 			dbuttons = "label[11.6,10.3;Items on click: ".. items_on_clickdis .."]" ..
 				"button[14,10.1;1,1;change_items_on_click;Change]"
 		end
+		if mode == "actual_inv" then
+			ibuttons = "field[11.9,11.4;2,1;infotext;Infotext;".. minetest.formspec_escape(meta:get_string("infotext")) .."]" ..
+				"button[14,11.1;1,1;set_infotext;Set]" ..
+				"field_close_on_enter[infotext;false]"
+		end
 		rb_formspec = "label[13,7.2;Settings]" ..
 			"label[11.6,8.2;Mode: ".. modedis .."]" ..
 			"button[14,8;1,1;change_mode;Change]" ..
@@ -655,9 +745,7 @@ local function update_formspec(player, pos)
 			"label[11.6,9.6;Sorting Mode: ".. sorting_modedis .."]" ..
 			"button[14,9.4;1,1;change_sorting_mode;Change]" ..
 			dbuttons ..
-			"field[11.9,11.4;2,1;infotext;Infotext;".. minetest.formspec_escape(meta:get_string("infotext")) .."]" ..
-			"button[14,11.1;1,1;set_infotext;Set]" ..
-			"field_close_on_enter[infotext;false]"
+			ibuttons
 	end
 	
 	local spos = pos_to_string(pos)
@@ -772,7 +860,7 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
 			meta:set_string("mode", "fake_inv")
 		elseif mode == "fake_inv" then
 			meta:set_string("mode", "buttons")
-		elseif mode == "buttons" then
+		else
 			meta:set_string("mode", "actual_inv")
 		end
 	elseif fields.change_shown then
@@ -783,28 +871,28 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
 			meta:set_string("shown", "craftitems")
 		elseif shown == "craftitems" then
 			meta:set_string("shown", "tools")
-		elseif shown == "tools" then
+		else
 			meta:set_string("shown", "everything")
 		end
 	elseif fields.change_rb_mode then
 		local rb_mode = meta:get_string("rb_mode")
 		if rb_mode == "crafting" then
 			meta:set_string("rb_mode", "settings")
-		elseif rb_mode == "settings" then
+		else
 			meta:set_string("rb_mode", "crafting")
 		end
 	elseif fields.change_sorting_mode then
 		local sorting_mode = meta:get_string("sorting_mode")
 		if sorting_mode == "name" then
 			meta:set_string("sorting_mode", "count")
-		elseif sorting_mode == "count" then
+		else
 			meta:set_string("sorting_mode", "name")
 		end
 	elseif fields.change_ignore_wam then
 		local ignore_wam = meta:get_string("ignore_wam")
 		if ignore_wam == "true" then
 			meta:set_string("ignore_wam", "false")
-		elseif ignore_wam == "false" then
+		else
 			meta:set_string("ignore_wam", "true")
 		end
 	elseif fields.change_items_on_click then
@@ -813,8 +901,17 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
 			meta:set_string("items_on_click", "one_item")
 		elseif items_on_click == "one_item" then
 			meta:set_string("items_on_click", "all")
-		elseif items_on_click == "all" then
+		else
 			meta:set_string("items_on_click", "one_stack")
+		end
+	elseif fields.change_display_count then
+		local display_count = meta:get_string("display_count")
+		if display_count == "number" then
+			meta:set_string("display_count", "color")
+		elseif display_count == "color" then
+			meta:set_string("display_count", "none")
+		else
+			meta:set_string("display_count", "number")
 		end
 	elseif fields.set_infotext or fields.key_enter_field == "infotext" then
 		meta:set_string("infotext", fields.infotext)
@@ -894,6 +991,7 @@ local si_node_def = {
 		meta:set_string("sorting_mode", "name")
 		meta:set_string("search_field", "")
 		meta:set_string("ignore_wam", "false")
+		meta:set_string("display_count", "number")
 		meta:set_string("infotext", "Storage Interface")
 		meta:set_string("items_on_click", "one_stack")
 		local inv = meta:get_inventory()
@@ -1160,7 +1258,7 @@ minetest.register_node("storage_interface:storage_connector_embedded", {
 	sounds = default.node_sound_wood_defaults(),
 })
 
-minetest.register_craftitem("storage_interface:sfit", {
+minetest.register_tool("storage_interface:sfit", {
 	description = "Sorting Filter Inscribing Tool",
 	inventory_image = "storage_interface_sfit.png",
 	stack_max = 1,

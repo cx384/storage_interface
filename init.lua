@@ -66,17 +66,14 @@ local function pos_to_string(pos)
 end
 
 local function create_changed_pos(pos, x, y, z)
-	local new_pos = table.copy(pos)
-	new_pos.x = new_pos.x + x
-	new_pos.y = new_pos.y + y
-	new_pos.z = new_pos.z + z
-	return new_pos
+    return {x=pos.x + x, y=pos.y + y, z=pos.z + z}
 end
 
 local function get_connected_nodes(pos, player)
 	local p1 = create_changed_pos(pos, 10, 10, 10)
 	local p2 = create_changed_pos(pos, -10, -10, -10)
 	local pos_table = {pos}
+        local toremove_table = {pos}
 	for _, tpos in ipairs(pos_table) do
 		local check_pos = {
 			create_changed_pos(tpos, 1, 0, 0),
@@ -87,20 +84,25 @@ local function get_connected_nodes(pos, player)
 			create_changed_pos(tpos, 0, 0, -1)
 		}
 		for _, cpos in ipairs(check_pos) do
-			local nodename = minetest.get_node(cpos).name
-			if (table_contains(storage_interface.storage_nodes, nodename) or 
-					table_contains(storage_interface.connection_nodes, nodename)) and 
-					not table_contains_table(pos_table, cpos) then
-				table.insert(pos_table, cpos)
-			end
+                        if not table_contains_table(pos_table, cpos) then
+                            local nodename = minetest.get_node(cpos).name
+                            local is_connector = table_contains(storage_interface.connection_nodes, nodename)
+                            if is_connector or table_contains(storage_interface.storage_nodes, nodename) then
+                                table.insert(pos_table, cpos)
+
+                                -- If it's not a storage or another player's storage, remove if afterwards
+                                local owner = minetest.get_meta(cpos):get_string("owner")
+                                if is_connector or (owner ~= "" and owner ~= player and player ~= ".ignore_player") then
+                                    table.insert(toremove_table, cpos)
+                                end
+                            end
+                        end
 		end
 	end
 	local rc = 0
 	for k = 1, #pos_table do
-		local kpos = pos_table[k - rc]
-		local owner = minetest.get_meta(kpos):get_string("owner")
-		if table_contains(storage_interface.connection_nodes, minetest.get_node(kpos).name) or
-				(owner ~= "" and owner ~= player and player ~= ".ignore_player") then
+                local kpos = pos_table[k - rc]
+		if table_contains_table(toremove_table, kpos) then
 			table.remove(pos_table, k - rc)
 			rc = rc + 1
 		end

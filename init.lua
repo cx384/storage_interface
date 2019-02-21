@@ -36,6 +36,12 @@ end
 
 -- helper functions
 
+-- before 5.0
+function core.rgba(r, g, b, a)
+	return a and string.format("#%02X%02X%02X%02X", r, g, b, a) or
+	string.format("#%02X%02X%02X", r, g, b)
+end
+
 local function table_contains(t, v)
 	for _, i in ipairs(t) do
 		if i == v then

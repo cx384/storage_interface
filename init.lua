@@ -804,7 +804,7 @@ local function sort_storage(pos, player)
 		for _, sste in ipairs(sorted_storage_table) do
 			local new_itemstack = sste.itemstack
 			if new_itemstack:get_name() == item_name then
-				itemstack = new_itemstack:add_item(itemstack)
+				itemstack:replace(new_itemstack:add_item(itemstack))
 			end
 			if itemstack:is_empty() then
 				break
